@@ -33,10 +33,11 @@ export async function POST(
       .eq('id', dose.medication_id)
       .single()
 
-    if (med?.stock_count !== null) {
+    if (med && med.stock_count != null) {
+      const newStock = Math.max(0, Number(med.stock_count) - Number(med.dose_amount))
       await supabase
         .from('medications')
-        .update({ stock_count: Math.max(0, med.stock_count - med.dose_amount) })
+        .update({ stock_count: newStock })
         .eq('id', dose.medication_id)
     }
   }

@@ -21,7 +21,6 @@ export default function CaregiverPanel({ patients, doses: initialDoses }: Props)
   const [doses, setDoses] = useState(initialDoses)
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  // Real-time subscription for patient doses
   useEffect(() => {
     const patientIds = patients.map(p => p.patient_id)
     if (patientIds.length === 0) return
@@ -35,13 +34,16 @@ export default function CaregiverPanel({ patients, doses: initialDoses }: Props)
         filter: `scheduled_date=eq.${today}`,
       }, payload => {
         if (payload.eventType === 'UPDATE') {
-          setDoses(prev => prev.map(d => d.id === (payload.new as Dose).id ? { ...d, ...payload.new } : d))
+          setDoses(prev => prev.map(d =>
+            d.id === (payload.new as Dose).id ? { ...d, ...payload.new } : d
+          ))
         }
       })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
-  }, [patients])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patients.map(p => p.patient_id).join(',')])
 
   return (
     <div className="space-y-4">
@@ -52,7 +54,6 @@ export default function CaregiverPanel({ patients, doses: initialDoses }: Props)
         const total = patientDoses.length
         const pending = patientDoses.filter(d => d.status === 'pending')
 
-        // Check if any pending dose is overdue by alert_delay_minutes
         const now = new Date()
         const overdue = pending.filter(d => {
           const scheduledAt = new Date(`${d.scheduled_date}T${d.scheduled_time}`)
@@ -85,7 +86,6 @@ export default function CaregiverPanel({ patients, doses: initialDoses }: Props)
               </div>
             </div>
 
-            {/* Dose pills */}
             {patientDoses.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {patientDoses.map(d => (
