@@ -8,21 +8,26 @@ import toast from 'react-hot-toast'
 
 export default function LoginPage() {
   const router = useRouter()
-  const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ email: '', password: '' })
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword(form)
+
+    const supabase = createClient()
+    const { error } = await supabase.auth.signInWithPassword({
+      email: form.email,
+      password: form.password,
+    })
+
     if (error) {
       toast.error('E-mail ou senha incorretos')
+      setLoading(false)
     } else {
-      router.push('/dashboard')
-      router.refresh()
+      // Hard redirect to force server-side cookie read
+      window.location.href = '/dashboard'
     }
-    setLoading(false)
   }
 
   return (
