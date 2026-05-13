@@ -1,14 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
 export default function RegisterPage() {
-  const router = useRouter()
-  const supabase = createClient()
   const [loading, setLoading] = useState(false)
   const [form, setForm] = useState({ full_name: '', email: '', password: '' })
 
@@ -19,18 +16,22 @@ export default function RegisterPage() {
       return
     }
     setLoading(true)
+
+    const supabase = createClient()
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: { data: { full_name: form.full_name } },
     })
+
     if (error) {
       toast.error(error.message)
+      setLoading(false)
     } else {
-      toast.success('Conta criada! Verifique seu e-mail.')
-      router.push('/dashboard')
+      toast.success('Conta criada com sucesso!')
+      // Hard redirect after signup
+      window.location.href = '/dashboard'
     }
-    setLoading(false)
   }
 
   return (
@@ -85,7 +86,6 @@ export default function RegisterPage() {
         <p className="text-center text-xs text-slate-400 mt-4">
           Ao criar sua conta, você concorda com nossos termos de uso.
         </p>
-
         <p className="text-center text-sm text-slate-500 mt-4">
           Já tem conta?{' '}
           <Link href="/auth/login" className="text-brand-600 font-medium hover:underline">
