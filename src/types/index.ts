@@ -1,4 +1,4 @@
-export type Plan = 'free' | 'pro'
+export type Plan = 'free' | 'basic' | 'pro' | 'premium'
 
 export type DoseStatus = 'pending' | 'taken' | 'missed' | 'skipped'
 
@@ -8,6 +8,22 @@ export type DoseUnit = 'comprimido' | 'cápsula' | 'mg' | 'ml' | 'gota' | 'ampol
 
 export type CaregiverStatus = 'pending' | 'accepted' | 'rejected'
 
+export interface PlanConfig {
+  id: Plan
+  name: string
+  price: number
+  max_medications: number | null
+  max_caregivers: number | null
+  history_days: number | null
+  pdf_reports: boolean
+  stock_control: boolean
+  push_alerts: boolean
+  caregiver_mode: boolean
+  multi_patients: boolean
+  support_level: 'none' | 'email' | 'priority' | 'vip'
+  sort_order: number
+}
+
 export interface Profile {
   id: string
   full_name: string
@@ -16,9 +32,11 @@ export interface Profile {
   phone: string | null
   plan: Plan
   plan_expires_at: string | null
+  trial_started_at: string | null
+  trial_expires_at: string | null
   asaas_customer_id: string | null
   asaas_subscription_id: string | null
-  push_subscription: PushSubscriptionJSON | null
+  push_subscription: any | null
   notifications_enabled: boolean
   is_caregiver: boolean
   caregiver_of: string[] | null
@@ -55,12 +73,11 @@ export interface Dose {
   user_id: string
   scheduled_date: string
   scheduled_time: string
-  scheduled_at: string
+  scheduled_at?: string
   status: DoseStatus
   confirmed_at: string | null
   notes: string | null
   created_at: string
-  // Joined
   medication?: Medication
 }
 
@@ -73,21 +90,8 @@ export interface CaregiverLink {
   alert_delay_minutes: number
   created_at: string
   accepted_at: string | null
-  // Joined
   patient?: Profile
   caregiver?: Profile
-}
-
-export interface NotificationLog {
-  id: string
-  user_id: string
-  medication_id: string | null
-  dose_id: string | null
-  type: string
-  title: string
-  body: string
-  sent_at: string
-  read_at: string | null
 }
 
 export interface AdherenceStats {
@@ -110,13 +114,105 @@ export interface PaymentHistory {
   created_at: string
 }
 
-// Free plan limits
-export const FREE_PLAN_LIMITS = {
-  max_medications: 3,
-  history_days: 30,
-  caregiver_links: 1,
-  pdf_reports: false,
-  stock_alerts: false,
+// ==========================================
+// PLANOS
+// ==========================================
+
+export const PLANS: Record<Plan, PlanConfig> = {
+  free: {
+    id: 'free',
+    name: 'Free',
+    price: 0,
+    max_medications: 1,
+    max_caregivers: 0,
+    history_days: 30,
+    pdf_reports: false,
+    stock_control: false,
+    push_alerts: false,
+    caregiver_mode: false,
+    multi_patients: false,
+    support_level: 'none',
+    sort_order: 0,
+  },
+  basic: {
+    id: 'basic',
+    name: 'Básico',
+    price: 9.90,
+    max_medications: 5,
+    max_caregivers: 1,
+    history_days: 90,
+    pdf_reports: false,
+    stock_control: false,
+    push_alerts: true,
+    caregiver_mode: true,
+    multi_patients: false,
+    support_level: 'email',
+    sort_order: 1,
+  },
+  pro: {
+    id: 'pro',
+    name: 'Pro',
+    price: 19.90,
+    max_medications: 15,
+    max_caregivers: 3,
+    history_days: 365,
+    pdf_reports: true,
+    stock_control: true,
+    push_alerts: true,
+    caregiver_mode: true,
+    multi_patients: false,
+    support_level: 'priority',
+    sort_order: 2,
+  },
+  premium: {
+    id: 'premium',
+    name: 'Premium',
+    price: 39.90,
+    max_medications: null,
+    max_caregivers: null,
+    history_days: null,
+    pdf_reports: true,
+    stock_control: true,
+    push_alerts: true,
+    caregiver_mode: true,
+    multi_patients: true,
+    support_level: 'vip',
+    sort_order: 3,
+  },
 }
 
-export const PRO_PLAN_PRICE = 19.90 // BRL/month
+export const TRIAL_DAYS = 30
+
+export function getPlanConfig(plan: Plan): PlanConfig {
+  return PLANS[plan] ?? PLANS.free
+}
+
+export function isTrialExpired(profile: Profile): boolean {
+  if (profile.plan !== 'free') return false
+  if (!profile.trial_expires_at) return false
+  return new Date(profile.trial_expires_at) < new Date()
+}
+
+export function getTrialDaysLeft(profile: Profile): number {
+  if (!profile.trial_expires_at) return 0
+  const diff = new Date(profile.trial_expires_at).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)))
+}
+
+export function canAddMedication(profile: Profile, currentCount: number): boolean {
+  if (isTrialExpired(profile)) return false
+  const plan = getPlanConfig(profile.plan)
+  if (plan.max_medications === null) return true
+  return currentCount < plan.max_medications
+}
+
+export function canAddCaregiver(profile: Profile, currentCount: number): boolean {
+  if (isTrialExpired(profile)) return false
+  const plan = getPlanConfig(profile.plan)
+  if (plan.max_caregivers === null) return true
+  return currentCount < plan.max_caregivers
+}
+
+export function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+}
